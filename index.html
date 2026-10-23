@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Luxury Pro AR Camera - Bubble & Flare HD</title>
+  <title>Luxury Pro AR Camera - Hose & Bubble Flare HD</title>
   <style>
     body {
       margin: 0;
@@ -150,7 +150,7 @@
     const MAX_ZOOM = 10;
     let useFrontCamera = false;
     let currentStream = null;
-    let faces = []; // 認識された顔の情報を格納する配列
+    let faces = [];
 
     function applyZoom(level) {
       currentZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, level));
@@ -263,7 +263,7 @@
       }
     });
 
-    // --- 高解像度 (Retina) 対応のCanvasリサイズ処理 ---
+    // --- Canvas リサイズ ---
     let dpr = window.devicePixelRatio || 1;
 
     function resizeCanvas() {
@@ -288,11 +288,10 @@
       document.getElementById('effect-btn').textContent = `FX: ${names[effectPowerLevel]}`;
     }
 
-    // --- 泡 (Bubble) & レンズフレア パーティクルシステム ---
+    // --- 泡 & レンズフレア パーティクルシステム ---
     const particles = [];
     let timeCount = 0;
 
-    // シャンパン・ゴールド・プラチナ調の高級感あふれるハイライトカラー
     const bubbleRimColors = [
       'rgba(255, 235, 190, ', 
       'rgba(228, 195, 139, ', 
@@ -300,45 +299,120 @@
       'rgba(200, 230, 255, '
     ];
 
-    for (let i = 0; i < 90; i++) {
-      const isFlare = Math.random() < 0.35; // 35%の確率でレンズフレア
-      particles.push({
-        type: isFlare ? 'flare' : 'bubble',
-        x: Math.random() * window.innerWidth,
-        y: Math.random() * window.innerHeight,
-        size: isFlare ? (Math.random() * 25 + 10) : (Math.random() * 30 + 8),
-        speedY: isFlare ? (Math.random() * 0.4 + 0.1) : (Math.random() * 1.5 + 0.5), // 泡は上昇、フレアはゆっくり揺らぐ
-        speedX: (Math.random() - 0.5) * 0.8,
-        opacity: Math.random() * 0.6 + 0.3,
-        baseOpacity: Math.random() * 0.5 + 0.4,
-        twinklePhase: Math.random() * Math.PI * 2, // 瞬き（フラッシュ）用の位相
-        twinkleSpeed: Math.random() * 0.05 + 0.02,
-        colorPrefix: bubbleRimColors[Math.floor(Math.random() * bubbleRimColors.length)],
-        onFace: false
-      });
+    // ホースのノズル位置（スクリーンの左下付近）
+    function getNozzlePosition() {
+      return {
+        x: window.innerWidth * 0.18,
+        y: window.innerHeight * 0.78
+      };
     }
 
-    // --- 虹色にきらめくラグジュアリーな泡を描画 ---
+    function createParticle(isInitial = false) {
+      const nozzle = getNozzlePosition();
+      const isFlare = Math.random() < 0.3; // 30%でレンズフレア
+
+      // 初期化時以外はノズル先端から発生
+      const startX = isInitial ? Math.random() * window.innerWidth : nozzle.x + (Math.random() - 0.5) * 20;
+      const startY = isInitial ? Math.random() * window.innerHeight : nozzle.y + (Math.random() - 0.5) * 20;
+
+      // 噴射の初期速度（右上方向へ勢いよく飛び出す）
+      const angle = -Math.PI / 3 + (Math.random() - 0.5) * 0.6; // 約60度上向き
+      const speed = isInitial ? (Math.random() * 1.5 + 0.5) : (Math.random() * 6.0 + 3.0);
+
+      return {
+        type: isFlare ? 'flare' : 'bubble',
+        x: startX,
+        y: startY,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        size: isFlare ? (Math.random() * 22 + 8) : (Math.random() * 26 + 6),
+        opacity: Math.random() * 0.6 + 0.4,
+        baseOpacity: Math.random() * 0.5 + 0.4,
+        twinklePhase: Math.random() * Math.PI * 2,
+        colorPrefix: bubbleRimColors[Math.floor(Math.random() * bubbleRimColors.length)],
+        onFace: false
+      };
+    }
+
+    for (let i = 0; i < 90; i++) {
+      particles.push(createParticle(true));
+    }
+
+    // --- ラグジュアリーなゴールド・ブラス調ホースの描画 ---
+    function drawHose(ctx) {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const nozzle = getNozzlePosition();
+
+      ctx.save();
+
+      // 1. ホース本体（曲線のパイプ）
+      ctx.beginPath();
+      ctx.moveTo(-20, h + 20);
+      ctx.bezierCurveTo(w * 0.05, h * 0.9, w * 0.08, h * 0.85, nozzle.x, nozzle.y);
+      ctx.lineWidth = 28;
+      ctx.strokeStyle = '#1a1815';
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      // ホースのメタリックなグラデーションハイライト
+      const hoseGrad = ctx.createLinearGradient(0, h, nozzle.x, nozzle.y);
+      hoseGrad.addColorStop(0, '#3a3227');
+      hoseGrad.addColorStop(0.5, '#8c7352');
+      hoseGrad.addColorStop(1, '#2a2218');
+
+      ctx.beginPath();
+      ctx.moveTo(-20, h + 20);
+      ctx.bezierCurveTo(w * 0.05, h * 0.9, w * 0.08, h * 0.85, nozzle.x, nozzle.y);
+      ctx.lineWidth = 20;
+      ctx.strokeStyle = hoseGrad;
+      ctx.stroke();
+
+      // 2. 金色のラグジュアリーノズル先端
+      ctx.translate(nozzle.x, nozzle.y);
+      ctx.rotate(-Math.PI / 3.2);
+
+      // 真鍮金色のグラデーション
+      const goldGrad = ctx.createLinearGradient(-12, -15, 12, 15);
+      goldGrad.addColorStop(0, '#fff3a8');
+      goldGrad.addColorStop(0.4, '#e4c38b');
+      goldGrad.addColorStop(0.8, '#b8977e');
+      goldGrad.addColorStop(1, '#5c4528');
+
+      ctx.fillStyle = goldGrad;
+      ctx.beginPath();
+      ctx.roundRect(-12, -25, 24, 35, [4, 4, 2, 2]);
+      ctx.fill();
+
+      // ノズルの金属リング装飾
+      ctx.fillStyle = '#ffffff';
+      ctx.globalAlpha = 0.6;
+      ctx.fillRect(-12, -20, 24, 3);
+      ctx.fillRect(-12, -10, 24, 2);
+
+      ctx.restore();
+    }
+
+    // --- 泡の描画 ---
     function drawBubble(ctx, x, y, size, colorPrefix, opacity, onFace) {
       ctx.save();
       ctx.translate(x, y);
 
       const alpha = onFace ? opacity * 0.1 : opacity;
 
-      // 1. 泡の本体（グラデーションによる立体感と光沢）
       const grad = ctx.createRadialGradient(-size * 0.3, -size * 0.3, size * 0.05, 0, 0, size);
-      grad.addColorStop(0, 'rgba(255, 255, 255, ' + (alpha * 0.8) + ')');
+      grad.addColorStop(0, 'rgba(255, 255, 255, ' + (alpha * 0.85) + ')');
       grad.addColorStop(0.4, colorPrefix + (alpha * 0.25) + ')');
       grad.addColorStop(0.85, colorPrefix + (alpha * 0.55) + ')');
-      grad.addColorStop(1, 'rgba(255, 255, 255, ' + (alpha * 0.9) + ')');
+      grad.addColorStop(1, 'rgba(255, 255, 255, ' + (alpha * 0.95) + ')');
 
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.arc(0, 0, size, 0, Math.PI * 2);
       ctx.fill();
 
-      // 2. シャイン（ハイライト光芒）
-      ctx.fillStyle = 'rgba(255, 255, 255, ' + (alpha * 0.85) + ')';
+      // 光沢ハイライト
+      ctx.fillStyle = 'rgba(255, 255, 255, ' + (alpha * 0.9) + ')';
       ctx.beginPath();
       ctx.arc(-size * 0.38, -size * 0.38, size * 0.22, 0, Math.PI * 2);
       ctx.fill();
@@ -346,50 +420,37 @@
       ctx.restore();
     }
 
-    // --- 瞬く高級感のあるレンズフレアを描画 ---
+    // --- 瞬くレンズフレアの描画 ---
     function drawLensFlare(ctx, x, y, size, colorPrefix, opacity, twinklePhase, onFace) {
       ctx.save();
       ctx.translate(x, y);
 
-      // 瞬き（サイン波による呼吸のような光の明滅）
-      const twinkle = Math.sin(timeCount * 3 + twinklePhase) * 0.3 + 0.7;
+      const twinkle = Math.sin(timeCount * 3.5 + twinklePhase) * 0.35 + 0.65;
       const currentOpacity = (onFace ? opacity * 0.1 : opacity) * twinkle;
 
       ctx.globalCompositeOperation = 'screen';
 
-      // 1. 中心のアウターグロー
-      const glowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 1.5);
-      glowGrad.addColorStop(0, colorPrefix + (currentOpacity * 0.9) + ')');
+      const glowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 1.6);
+      glowGrad.addColorStop(0, colorPrefix + (currentOpacity * 0.95) + ')');
       glowGrad.addColorStop(0.5, colorPrefix + (currentOpacity * 0.3) + ')');
       glowGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
 
       ctx.fillStyle = glowGrad;
       ctx.beginPath();
-      ctx.arc(0, 0, size * 1.5, 0, Math.PI * 2);
+      ctx.arc(0, 0, size * 1.6, 0, Math.PI * 2);
       ctx.fill();
 
-      // 2. 十字のレンズフレア光線（ラグジュアリーなアナモルフィック・スパーク）
-      ctx.strokeStyle = 'rgba(255, 255, 255, ' + (currentOpacity * 0.95) + ')';
+      // 光芒
+      ctx.strokeStyle = 'rgba(255, 255, 255, ' + (currentOpacity * 0.9) + ')';
       ctx.lineWidth = 1.5;
-
-      // 水平・垂直光芒
       ctx.beginPath();
       ctx.moveTo(-size * 2.2, 0); ctx.lineTo(size * 2.2, 0);
       ctx.moveTo(0, -size * 2.2); ctx.lineTo(0, size * 2.2);
       ctx.stroke();
 
-      // 斜め光芒（控えめなアクセント）
-      ctx.strokeStyle = colorPrefix + (currentOpacity * 0.5) + ')';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(-size * 1.1, -size * 1.1); ctx.lineTo(size * 1.1, size * 1.1);
-      ctx.moveTo(size * 1.1, -size * 1.1); ctx.lineTo(-size * 1.1, size * 1.1);
-      ctx.stroke();
-
-      // 3. 超高輝度な中心点
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(0, 0, size * 0.2, 0, Math.PI * 2);
+      ctx.arc(0, 0, size * 0.22, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.restore();
@@ -403,26 +464,30 @@
 
       ctx.clearRect(0, 0, logicalWidth, logicalHeight);
 
-      const activeCount = effectPowerLevel === 1 ? 0.4 : (effectPowerLevel === 2 ? 0.7 : 1.2);
+      const activeCount = effectPowerLevel === 1 ? 0.4 : (effectPowerLevel === 2 ? 0.8 : 1.4);
 
-      particles.forEach((p) => {
-        // 位置調整（泡は上へ浮遊、フレアは緩やかに昇降）
+      // パーティクルの更新と描画
+      particles.forEach((p, idx) => {
+        // 速度の減衰と上昇（空気抵抗と浮力）
+        p.vx *= 0.96;
+        p.vy *= 0.96;
+
         if (p.type === 'bubble') {
-          p.y -= p.speedY * activeCount;
-          p.x += Math.sin(timeCount * 2 + p.twinklePhase) * 0.6 * activeCount;
+          p.vy -= 0.08 * activeCount; // 浮力で浮上
+          p.vx += Math.sin(timeCount * 2.5 + p.twinklePhase) * 0.2;
         } else {
-          p.y -= p.speedY * activeCount * 0.5;
-          p.x += p.speedX * activeCount * 0.3;
+          p.vy -= 0.03 * activeCount;
         }
 
-        // 画面外に出て行った場合のリセット処理
-        if (p.y < -50 || p.x < -50 || p.x > logicalWidth + 50) {
-          p.y = logicalHeight + 40;
-          p.x = Math.random() * logicalWidth;
-          p.colorPrefix = bubbleRimColors[Math.floor(Math.random() * bubbleRimColors.length)];
+        p.x += p.vx * activeCount;
+        p.y += p.vy * activeCount;
+
+        // 画面外へ出たらノズルからリスポーン
+        if (p.y < -50 || p.x > logicalWidth + 50 || p.x < -50) {
+          particles[idx] = createParticle(false);
         }
 
-        // --- 顔認識回避ロジック ---
+        // 顔認識回避
         p.onFace = false;
         if (faces.length > 0) {
           for (const face of faces) {
@@ -434,7 +499,6 @@
           }
         }
 
-        // エフェクトの描画
         if (effectPowerLevel > 0) {
           if (p.type === 'bubble') {
             drawBubble(ctx, p.x, p.y, p.size, p.colorPrefix, p.opacity, p.onFace);
@@ -443,6 +507,11 @@
           }
         }
       });
+
+      // 最後にホースを描画（パーティクルの後ろ・前に自然に配置）
+      if (effectPowerLevel > 0) {
+        drawHose(ctx);
+      }
 
       requestAnimationFrame(renderLoop);
     }
@@ -459,7 +528,7 @@
       const saveCtx = saveCanvas.getContext('2d');
       saveCtx.scale(dpr, dpr);
 
-      // 1. カメラ映像を描画
+      // 1. カメラ映像
       if (webcamEl.readyState === webcamEl.HAVE_ENOUGH_DATA) {
         const vW = webcamEl.videoWidth;
         const vH = webcamEl.videoHeight;
@@ -483,13 +552,13 @@
         saveCtx.restore();
       }
 
-      // 2. 現在の泡＆レンズフレアAR演出を合成
+      // 2. AR演出（ホース・泡・レンズフレア）の合成
       saveCtx.drawImage(arCanvas, 0, 0, logicalWidth, logicalHeight);
 
-      // 3. JPGで自動保存
+      // 3. JPG保存
       const jpgDataUrl = saveCanvas.toDataURL('image/jpeg', 0.92);
       const link = document.createElement('a');
-      link.download = 'luxury_pro_bubble_' + Date.now() + '.jpg';
+      link.download = 'luxury_pro_hose_bubble_' + Date.now() + '.jpg';
       link.href = jpgDataUrl;
       link.click();
 
