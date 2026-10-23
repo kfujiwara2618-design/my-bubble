@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Luxury Pro AR Camera - Bubble & Flare HD</title>
+  <title>Luxury Pro AR Camera - Bubble, Flare & Rainbow HD</title>
   <style>
     body {
       margin: 0;
@@ -121,13 +121,13 @@
   <video id="webcam" autoplay playsinline muted></video>
 
   <div id="top-controls">
-    <button class="control-btn" id="effect-btn" onclick="toggleEffectPower()">FX: Mid</button>
+    <button class="control-btn" id="effect-btn" onclick="toggleEffectPower()">FX: Lv3</button>
     <div style="width: 1px; height: 16px; background: rgba(228,195,139,0.3); margin: 0 2px;"></div>
     <button class="control-btn" onclick="switchCamera()">Cam ⟳</button>
   </div>
 
   <div id="info-overlay">
-    PRO MODE: <span id="status">MODEL LOADING...</span> | JPG保存 | 顔認識エフェクト回避
+    PRO MODE: <span id="status">MODEL LOADING...</span> | 5段階FX | 10s虹 | JPG保存
   </div>
 
   <div id="ar-layer">
@@ -280,12 +280,11 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // --- エフェクト強弱設定 ---
-    let effectPowerLevel = 2; // 1: Low, 2: Mid, 3: High
+    // --- 5段階のエフェクト強弱設定 ---
+    let effectPowerLevel = 3; // 初期値: Lv3 (Mid)
     function toggleEffectPower() {
-      effectPowerLevel = (effectPowerLevel % 3) + 1;
-      const names = { 1: 'Low', 2: 'Mid', 3: 'High' };
-      document.getElementById('effect-btn').textContent = `FX: ${names[effectPowerLevel]}`;
+      effectPowerLevel = (effectPowerLevel % 5) + 1;
+      document.getElementById('effect-btn').textContent = `FX: Lv${effectPowerLevel}`;
     }
 
     // --- 泡 (Bubble) & レンズフレア パーティクルシステム ---
@@ -299,132 +298,38 @@
       'rgba(200, 230, 255, '
     ];
 
-    for (let i = 0; i < 90; i++) {
-      const isFlare = Math.random() < 0.35;
+    // 泡：60個、フレア：40個作成
+    for (let i = 0; i < 60; i++) {
       particles.push({
-        type: isFlare ? 'flare' : 'bubble',
+        type: 'bubble',
         x: Math.random() * window.innerWidth,
         y: Math.random() * window.innerHeight,
-        size: isFlare ? (Math.random() * 25 + 10) : (Math.random() * 30 + 8),
-        speedY: isFlare ? (Math.random() * 0.4 + 0.1) : (Math.random() * 1.5 + 0.5),
+        size: Math.random() * 30 + 8,
+        speedY: Math.random() * 1.5 + 0.5,
         speedX: (Math.random() - 0.5) * 0.8,
         opacity: Math.random() * 0.6 + 0.3,
+        colorPrefix: bubbleRimColors[Math.floor(Math.random() * bubbleRimColors.length)],
+        onFace: false,
+        id: i
+      });
+    }
+    for (let i = 0; i < 40; i++) {
+      particles.push({
+        type: 'flare',
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        size: Math.random() * 25 + 10,
+        speedY: Math.random() * 0.4 + 0.1,
+        speedX: (Math.random() - 0.5) * 0.8,
         baseOpacity: Math.random() * 0.5 + 0.4,
         twinklePhase: Math.random() * Math.PI * 2,
-        twinkleSpeed: Math.random() * 0.05 + 0.02,
         colorPrefix: bubbleRimColors[Math.floor(Math.random() * bubbleRimColors.length)],
-        onFace: false
+        onFace: false,
+        id: i
       });
     }
 
-    // --- 水鉄砲 (Water Gun) 管理オブジェクト ---
-    const waterGun = {
-      active: false,
-      progress: 0,       // 登場アニメーション進捗 (0~1)
-      timer: 0,          // 10秒ごとのタイマー
-      duration: 3.5,     // 水鉄砲が現れて噴射して消えるまでの時間(秒)
-      shootTimer: 0,
-      angle: -Math.PI / 4,
-      gunX: 0,
-      gunY: 0,
-      nozzleX: 0,
-      nozzleY: 0
-    };
-
-    // 水鉄砲から吐き出される特製バブルアレイ
-    const shotBubbles = [];
-
-    function emitGunBubbles(nx, ny) {
-      for (let i = 0; i < 4; i++) {
-        const spread = (Math.random() - 0.5) * 0.6;
-        const speed = Math.random() * 6 + 4;
-        const angle = waterGun.angle + spread;
-        shotBubbles.push({
-          x: nx,
-          y: ny,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed,
-          size: Math.random() * 18 + 6,
-          opacity: 0.9,
-          colorPrefix: bubbleRimColors[Math.floor(Math.random() * bubbleRimColors.length)],
-          onFace: false
-        });
-      }
-    }
-
-    // ラグジュアリーゴールド水鉄砲の描画
-    function drawWaterGun(ctx, width, height) {
-      if (!waterGun.active) return;
-
-      const offset = Math.sin(waterGun.progress * Math.PI) * 140; // 右下からスライドイン
-      const baseGunX = width - offset + 20;
-      const baseGunY = height - offset * 0.7 + 20;
-
-      waterGun.gunX = baseGunX;
-      waterGun.gunY = baseGunY;
-
-      // ノズル先端の計算
-      const length = 90;
-      waterGun.nozzleX = baseGunX + Math.cos(waterGun.angle) * length;
-      waterGun.nozzleY = baseGunY + Math.sin(waterGun.angle) * length;
-
-      ctx.save();
-      ctx.translate(baseGunX, baseGunY);
-      ctx.rotate(waterGun.angle);
-
-      // 1. 水鉄砲ボディ（高級感あふれるグラデーション）
-      const gunGrad = ctx.createLinearGradient(0, -15, 0, 15);
-      gunGrad.addColorStop(0, '#fceabb');
-      gunGrad.addColorStop(0.5, '#f8b500');
-      gunGrad.addColorStop(1, '#c48900');
-
-      // 銃身
-      ctx.fillStyle = gunGrad;
-      ctx.beginPath();
-      ctx.roundRect(0, -12, 85, 24, [4, 12, 12, 4]);
-      ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      // 水タンク（クリアクリスタル調）
-      const tankGrad = ctx.createRadialGradient(35, -18, 2, 35, -18, 22);
-      tankGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-      tankGrad.addColorStop(0.6, 'rgba(228, 195, 139, 0.6)');
-      tankGrad.addColorStop(1, 'rgba(184, 151, 126, 0.8)');
-
-      ctx.fillStyle = tankGrad;
-      ctx.beginPath();
-      ctx.ellipse(35, -18, 22, 14, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-      ctx.stroke();
-
-      // ノズル先端
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.rect(85, -6, 10, 12);
-      ctx.fill();
-
-      // グリップ
-      ctx.fillStyle = '#8a5d14';
-      ctx.beginPath();
-      ctx.moveTo(10, 10);
-      ctx.lineTo(0, 38);
-      ctx.lineTo(15, 38);
-      ctx.lineTo(25, 10);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.restore();
-
-      // 出現中で全開のタイミング（progress 0.2〜0.85）で泡を噴射
-      if (waterGun.progress > 0.2 && waterGun.progress < 0.85) {
-        emitGunBubbles(waterGun.nozzleX, waterGun.nozzleY);
-      }
-    }
-
-    // 泡を描画
+    // --- 泡を描画 ---
     function drawBubble(ctx, x, y, size, colorPrefix, opacity, onFace) {
       ctx.save();
       ctx.translate(x, y);
@@ -450,7 +355,7 @@
       ctx.restore();
     }
 
-    // 瞬くレンズフレアを描画
+    // --- 瞬くレンズフレアを描画 ---
     function drawLensFlare(ctx, x, y, size, colorPrefix, opacity, twinklePhase, onFace) {
       ctx.save();
       ctx.translate(x, y);
@@ -493,6 +398,37 @@
       ctx.restore();
     }
 
+    // --- ラグジュアリーな虹（Rainbow）を描画 ---
+    function drawRainbow(ctx, width, height, alpha) {
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.7;
+      ctx.globalCompositeOperation = 'screen';
+
+      const centerX = width * 0.5;
+      const centerY = height * 0.15;
+      const baseRadius = Math.max(width, height) * 0.85;
+
+      const colors = [
+        'rgba(255, 120, 120, 0.45)', // 赤
+        'rgba(255, 180, 100, 0.45)', // 橙
+        'rgba(255, 255, 120, 0.45)', // 黄
+        'rgba(120, 255, 160, 0.45)', // 緑
+        'rgba(120, 220, 255, 0.45)', // 青
+        'rgba(160, 130, 255, 0.45)', // 藍
+        'rgba(220, 150, 255, 0.45)'  // 紫
+      ];
+
+      ctx.lineWidth = 14;
+      colors.forEach((col, index) => {
+        ctx.strokeStyle = col;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY + 180, baseRadius + (index * 15), Math.PI * 1.1, Math.PI * 1.9);
+        ctx.stroke();
+      });
+
+      ctx.restore();
+    }
+
     // --- メイン描画ループ ---
     function renderLoop() {
       timeCount += 0.016;
@@ -501,40 +437,57 @@
 
       ctx.clearRect(0, 0, logicalWidth, logicalHeight);
 
-      // --- 水鉄砲 10秒周期タイマーロジック ---
-      waterGun.timer += 0.016;
-      if (waterGun.timer >= 10 && !waterGun.active) {
-        waterGun.active = true;
-        waterGun.progress = 0;
+      // --- 10秒周期で出現し、3秒間で消える虹の制御 ---
+      const cycleTime = timeCount % 10;
+      if (cycleTime < 3) {
+        let rainbowAlpha = 1.0;
+        if (cycleTime < 0.5) rainbowAlpha = cycleTime / 0.5;
+        if (cycleTime > 2.5) rainbowAlpha = (3 - cycleTime) / 0.5;
+        drawRainbow(ctx, logicalWidth, logicalHeight, rainbowAlpha);
       }
 
-      if (waterGun.active) {
-        waterGun.progress += 0.016 / waterGun.duration;
-        if (waterGun.progress >= 1) {
-          waterGun.active = false;
-          waterGun.timer = 0;
-          waterGun.progress = 0;
-        }
+      // --- 5段階レベルに応じたパーティクル上限数（Lv1は泡が消失） ---
+      let maxBubbleCount = 0;
+      let maxFlareCount = 10;
+      if (effectPowerLevel === 1) {
+        maxBubbleCount = 0;   // 泡の消失
+        maxFlareCount = 10;   // フレア最少
+      } else if (effectPowerLevel === 2) {
+        maxBubbleCount = 15;
+        maxFlareCount = 20;
+      } else if (effectPowerLevel === 3) {
+        maxBubbleCount = 30;
+        maxFlareCount = 30;
+      } else if (effectPowerLevel === 4) {
+        maxBubbleCount = 45;
+        maxFlareCount = 35;
+      } else if (effectPowerLevel === 5) {
+        maxBubbleCount = 60;
+        maxFlareCount = 40;
       }
 
-      const activeCount = effectPowerLevel === 1 ? 0.4 : (effectPowerLevel === 2 ? 0.7 : 1.2);
-
-      // 通常背景パーティクルの更新と描画
       particles.forEach((p) => {
+        // レベル制限による除外（Lv1のときは泡を完全にスキップ）
+        if (p.type === 'bubble' && p.id >= maxBubbleCount) return;
+        if (p.type === 'flare' && p.id >= maxFlareCount) return;
+
+        // 位置の更新
         if (p.type === 'bubble') {
-          p.y -= p.speedY * activeCount;
-          p.x += Math.sin(timeCount * 2 + p.twinklePhase) * 0.6 * activeCount;
+          p.y -= p.speedY * 0.8;
+          p.x += Math.sin(timeCount * 2 + p.id) * 0.5;
         } else {
-          p.y -= p.speedY * activeCount * 0.5;
-          p.x += p.speedX * activeCount * 0.3;
+          p.y -= p.speedY * 0.3;
+          p.x += p.speedX * 0.3;
         }
 
+        // 画面外リセット
         if (p.y < -50 || p.x < -50 || p.x > logicalWidth + 50) {
           p.y = logicalHeight + 40;
           p.x = Math.random() * logicalWidth;
           p.colorPrefix = bubbleRimColors[Math.floor(Math.random() * bubbleRimColors.length)];
         }
 
+        // --- 顔認識回避ロジック ---
         p.onFace = false;
         if (faces.length > 0) {
           for (const face of faces) {
@@ -546,46 +499,13 @@
           }
         }
 
-        if (effectPowerLevel > 0) {
-          if (p.type === 'bubble') {
-            drawBubble(ctx, p.x, p.y, p.size, p.colorPrefix, p.opacity, p.onFace);
-          } else {
-            drawLensFlare(ctx, p.x, p.y, p.size, p.colorPrefix, p.baseOpacity, p.twinklePhase, p.onFace);
-          }
+        // 描画実行
+        if (p.type === 'bubble') {
+          drawBubble(ctx, p.x, p.y, p.size, p.colorPrefix, p.opacity, p.onFace);
+        } else {
+          drawLensFlare(ctx, p.x, p.y, p.size, p.colorPrefix, p.baseOpacity, p.twinklePhase, p.onFace);
         }
       });
-
-      // 水鉄砲描画
-      if (effectPowerLevel > 0) {
-        drawWaterGun(ctx, logicalWidth, logicalHeight);
-      }
-
-      // 噴射された泡の更新と描画
-      for (let i = shotBubbles.length - 1; i >= 0; i--) {
-        const sb = shotBubbles[i];
-        sb.x += sb.vx;
-        sb.y += sb.vy;
-        sb.vy -= 0.08; // 浮力で次第に上に向かう
-        sb.vx *= 0.98; // 空気抵抗
-        sb.opacity -= 0.005;
-
-        sb.onFace = false;
-        if (faces.length > 0) {
-          for (const face of faces) {
-            const { x, y, width, height } = face.box;
-            if (sb.x > x && sb.x < x + width && sb.y > y && sb.y < y + height) {
-              sb.onFace = true;
-              break;
-            }
-          }
-        }
-
-        if (sb.opacity <= 0 || sb.y < -30) {
-          shotBubbles.splice(i, 1);
-        } else if (effectPowerLevel > 0) {
-          drawBubble(ctx, sb.x, sb.y, sb.size, sb.colorPrefix, sb.opacity, sb.onFace);
-        }
-      }
 
       requestAnimationFrame(renderLoop);
     }
@@ -626,13 +546,13 @@
         saveCtx.restore();
       }
 
-      // 2. 現在の泡＆レンズフレア＆水鉄砲AR演出を合成
+      // 2. 現在のAR演出（泡・レンズフレア・虹）を合成
       saveCtx.drawImage(arCanvas, 0, 0, logicalWidth, logicalHeight);
 
       // 3. JPGで自動保存
       const jpgDataUrl = saveCanvas.toDataURL('image/jpeg', 0.92);
       const link = document.createElement('a');
-      link.download = 'luxury_pro_bubble_' + Date.now() + '.jpg';
+      link.download = 'luxury_pro_camera_' + Date.now() + '.jpg';
       link.href = jpgDataUrl;
       link.click();
 
