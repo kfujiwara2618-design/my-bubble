@@ -121,13 +121,13 @@
   <video id="webcam" autoplay playsinline muted></video>
 
   <div id="top-controls">
-    <button class="control-btn" id="effect-btn" onclick="toggleEffectPower()">FX: Mid</button>
+    <button class="control-btn" id="effect-btn" onclick="toggleEffectPower()">FX: Lv.3</button>
     <div style="width: 1px; height: 16px; background: rgba(228,195,139,0.3); margin: 0 2px;"></div>
     <button class="control-btn" onclick="switchCamera()">Cam ⟳</button>
   </div>
 
   <div id="info-overlay">
-    PRO MODE: <span id="status">MODEL LOADING...</span> | JPG保存 | 顔認識エフェクト回避
+    PRO MODE: <span id="status">MODEL LOADING...</span> | 5段階FX | 虹エフェクト搭載
   </div>
 
   <div id="ar-layer">
@@ -263,7 +263,7 @@
       }
     });
 
-    // --- Canvasリサイズ処理 ---
+    // --- 高解像度 (Retina) 対応のCanvasリサイズ処理 ---
     let dpr = window.devicePixelRatio || 1;
 
     function resizeCanvas() {
@@ -280,18 +280,17 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // --- エフェクト強弱設定（5段階：0=Off, 1=Min, 2=Low, 3=Mid, 4=Max） ---
-    let effectPowerLevel = 3; // 初期値：Mid(3)
-    const powerNames = { 0: 'Off', 1: 'Min', 2: 'Low', 3: 'Mid', 4: 'Max' };
-
+    // --- エフェクト強弱設定（5段階） ---
+    let effectPowerLevel = 3; // 1〜5
     function toggleEffectPower() {
-      effectPowerLevel = (effectPowerLevel + 1) % 5;
-      document.getElementById('effect-btn').textContent = `FX: ${powerNames[effectPowerLevel]}`;
+      effectPowerLevel = (effectPowerLevel % 5) + 1;
+      document.getElementById('effect-btn').textContent = `FX: Lv.${effectPowerLevel}`;
     }
 
-    // --- 泡 (Bubble) & レンズフレア パーティクルシステム ---
+    // --- パーティクルシステムの初期化（動作の快適性を考慮し適正数に設計） ---
     const particles = [];
     let timeCount = 0;
+    const MAX_PARTICLES = 120; // 最大パフォーマンス維持のための制限
 
     const bubbleRimColors = [
       'rgba(255, 235, 190, ', 
@@ -300,7 +299,7 @@
       'rgba(200, 230, 255, '
     ];
 
-    for (let i = 0; i < 110; i++) {
+    for (let i = 0; i < MAX_PARTICLES; i++) {
       const isFlare = Math.random() < 0.35;
       particles.push({
         type: isFlare ? 'flare' : 'bubble',
@@ -312,19 +311,17 @@
         opacity: Math.random() * 0.6 + 0.3,
         baseOpacity: Math.random() * 0.5 + 0.4,
         twinklePhase: Math.random() * Math.PI * 2,
-        twinkleSpeed: Math.random() * 0.05 + 0.02,
         colorPrefix: bubbleRimColors[Math.floor(Math.random() * bubbleRimColors.length)],
         onFace: false
       });
     }
 
-    // --- 泡を描画 ---
+    // --- 泡 (Bubble) 描画 ---
     function drawBubble(ctx, x, y, size, colorPrefix, opacity, onFace) {
       ctx.save();
       ctx.translate(x, y);
 
       const alpha = onFace ? opacity * 0.1 : opacity;
-
       const grad = ctx.createRadialGradient(-size * 0.3, -size * 0.3, size * 0.05, 0, 0, size);
       grad.addColorStop(0, 'rgba(255, 255, 255, ' + (alpha * 0.8) + ')');
       grad.addColorStop(0.4, colorPrefix + (alpha * 0.25) + ')');
@@ -344,7 +341,7 @@
       ctx.restore();
     }
 
-    // --- レンズフレアを描画 ---
+    // --- レンズフレア描画 ---
     function drawLensFlare(ctx, x, y, size, colorPrefix, opacity, twinklePhase, onFace) {
       ctx.save();
       ctx.translate(x, y);
@@ -372,13 +369,6 @@
       ctx.moveTo(0, -size * 2.2); ctx.lineTo(0, size * 2.2);
       ctx.stroke();
 
-      ctx.strokeStyle = colorPrefix + (currentOpacity * 0.5) + ')';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(-size * 1.1, -size * 1.1); ctx.lineTo(size * 1.1, size * 1.1);
-      ctx.moveTo(size * 1.1, -size * 1.1); ctx.lineTo(-size * 1.1, size * 1.1);
-      ctx.stroke();
-
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.arc(0, 0, size * 0.2, 0, Math.PI * 2);
@@ -387,38 +377,44 @@
       ctx.restore();
     }
 
-    // --- ラグジュアリーな虹（Rainbow）を描画 ---
-    function drawRainbow(ctx, width, height, alpha) {
-      if (alpha <= 0) return;
+    // --- 10秒ごとに現れ3秒で消えるラグジュアリーな虹エフェクト ---
+    function drawRainbow(ctx, logicalWidth, logicalHeight) {
+      // 10秒周期のうち、最初の3秒間のみ発動
+      const cycleTime = timeCount % 10.0;
+      if (cycleTime >= 3.0) return;
+
+      // 3秒間内でのフェードイン・フェードアウトの進行度 (0.0 -> 1.0 -> 0.0)
+      let progress = cycleTime / 3.0; // 0 ~ 1
+      let alphaMultiplier = Math.sin(progress * Math.PI); // 端でゼロ、中央で最大
 
       ctx.save();
       ctx.globalCompositeOperation = 'screen';
 
-      const centerX = width * 0.5;
-      const centerY = height * 1.35;
-      const radius = Math.max(width, height) * 0.9;
-      const arcWidth = 35;
+      // ラグジュアリーなアーチ状の虹（プリズムグラデーション）
+      const centerX = logicalWidth * 0.5;
+      const centerY = logicalHeight * 1.2;
+      const radius = logicalWidth * 0.85;
 
-      const rainbowGrad = ctx.createRadialGradient(
-        centerX, centerY, radius - arcWidth,
-        centerX, centerY, radius + arcWidth
-      );
+      const rainbowColors = [
+        `rgba(255, 100, 100, ${0.35 * alphaMultiplier})`,
+        `rgba(255, 180, 100, ${0.35 * alphaMultiplier})`,
+        `rgba(255, 255, 120, ${0.35 * alphaMultiplier})`,
+        `rgba(120, 255, 150, ${0.35 * alphaMultiplier})`,
+        `rgba(100, 200, 255, ${0.35 * alphaMultiplier})`,
+        `rgba(180, 120, 255, ${0.35 * alphaMultiplier})`
+      ];
 
-      rainbowGrad.addColorStop(0.00, `rgba(255, 0, 0, 0)`);
-      rainbowGrad.addColorStop(0.15, `rgba(255, 50, 50, ${0.45 * alpha})`);
-      rainbowGrad.addColorStop(0.30, `rgba(255, 165, 0, ${0.4 * alpha})`);
-      rainbowGrad.addColorStop(0.45, `rgba(255, 255, 0, ${0.45 * alpha})`);
-      rainbowGrad.addColorStop(0.60, `rgba(50, 205, 50, ${0.4 * alpha})`);
-      rainbowGrad.addColorStop(0.75, `rgba(30, 144, 255, ${0.45 * alpha})`);
-      rainbowGrad.addColorStop(0.90, `rgba(138, 43, 226, ${0.35 * alpha})`);
-      rainbowGrad.addColorStop(1.00, `rgba(238, 130, 238, 0)`);
+      let currentRadius = radius;
+      const stripeWidth = 14;
 
-      ctx.fillStyle = rainbowGrad;
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, radius + arcWidth, Math.PI * 1.1, Math.PI * 1.9);
-      ctx.arc(centerX, centerY, radius - arcWidth, Math.PI * 1.9, Math.PI * 1.1, true);
-      ctx.closePath();
-      ctx.fill();
+      for (let i = 0; i < rainbowColors.length; i++) {
+        ctx.strokeStyle = rainbowColors[i];
+        ctx.lineWidth = stripeWidth;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, currentRadius, Math.PI, 0, false);
+        ctx.stroke();
+        currentRadius -= stripeWidth;
+      }
 
       ctx.restore();
     }
@@ -431,73 +427,51 @@
 
       ctx.clearRect(0, 0, logicalWidth, logicalHeight);
 
-      // --- 10秒周期タイマーロジック ---
-      // cycleTime: 0～10秒
-      const cycleTime = timeCount % 10; 
+      // 5段階のエフェクト量に応じた稼働数係数 (Lv.1: 0.2 ~ Lv.5: 1.2)
+      const activeCount = effectPowerLevel * 0.25;
+      const activeParticleLimit = Math.floor(MAX_PARTICLES * (effectPowerLevel / 5));
 
-      // 虹のフェード計算（最初の3秒間現れて消える）
-      let rainbowAlpha = 0;
-      if (cycleTime < 3.0) {
-        rainbowAlpha = Math.sin((cycleTime / 3.0) * Math.PI); // 0 -> 1 -> 0 へ滑らかに変化
-      }
+      // 1. パーティクル（泡・レンズフレア）の描画
+      for (let i = 0; i < activeParticleLimit; i++) {
+        const p = particles[i];
+        
+        if (p.type === 'bubble') {
+          p.y -= p.speedY * activeCount;
+          p.x += Math.sin(timeCount * 2 + p.twinklePhase) * 0.6 * activeCount;
+        } else {
+          p.y -= p.speedY * activeCount * 0.5;
+          p.x += p.speedX * activeCount * 0.3;
+        }
 
-      // エフェクト強度の計算
-      let activeMultiplier = 0;
-      if (effectPowerLevel === 0) {
-        activeMultiplier = 0; // Off
-      } else if (effectPowerLevel === 1) {
-        // Min設定：10秒周期の虹が出現している3秒間のみ泡・フレアが出現し、消失する
-        activeMultiplier = rainbowAlpha * 0.5;
-      } else if (effectPowerLevel === 2) {
-        activeMultiplier = 0.4; // Low
-      } else if (effectPowerLevel === 3) {
-        activeMultiplier = 0.8; // Mid
-      } else if (effectPowerLevel === 4) {
-        activeMultiplier = 1.3; // Max
-      }
+        if (p.y < -50 || p.x < -50 || p.x > logicalWidth + 50) {
+          p.y = logicalHeight + 40;
+          p.x = Math.random() * logicalWidth;
+          p.colorPrefix = bubbleRimColors[Math.floor(Math.random() * bubbleRimColors.length)];
+        }
 
-      // 虹の描画（FX: Off 以外で10秒周期で出現）
-      if (effectPowerLevel > 0 && rainbowAlpha > 0) {
-        drawRainbow(ctx, logicalWidth, logicalHeight, rainbowAlpha);
-      }
-
-      // パーティクルの描画
-      if (activeMultiplier > 0) {
-        particles.forEach((p) => {
-          if (p.type === 'bubble') {
-            p.y -= p.speedY * (effectPowerLevel === 1 ? 0.8 : activeMultiplier);
-            p.x += Math.sin(timeCount * 2 + p.twinklePhase) * 0.6;
-          } else {
-            p.y -= p.speedY * (effectPowerLevel === 1 ? 0.4 : activeMultiplier * 0.5);
-            p.x += p.speedX * 0.3;
-          }
-
-          if (p.y < -50 || p.x < -50 || p.x > logicalWidth + 50) {
-            p.y = logicalHeight + 40;
-            p.x = Math.random() * logicalWidth;
-            p.colorPrefix = bubbleRimColors[Math.floor(Math.random() * bubbleRimColors.length)];
-          }
-
-          // 顔認識回避ロジック
-          p.onFace = false;
-          if (faces.length > 0) {
-            for (const face of faces) {
-              const { x, y, width, height } = face.box;
-              if (p.x > x && p.x < x + width && p.y > y && p.y < y + height) {
-                p.onFace = true;
-                break;
-              }
+        p.onFace = false;
+        if (faces.length > 0) {
+          for (const face of faces) {
+            const { x, y, width, height } = face.box;
+            if (p.x > x && p.x < x + width && p.y > y && p.y < y + height) {
+              p.onFace = true;
+              break;
             }
           }
+        }
 
-          const currentOpacity = p.opacity * (effectPowerLevel === 1 ? rainbowAlpha : 1.0);
-
+        if (effectPowerLevel > 0) {
           if (p.type === 'bubble') {
-            drawBubble(ctx, p.x, p.y, p.size, p.colorPrefix, currentOpacity, p.onFace);
+            drawBubble(ctx, p.x, p.y, p.size, p.colorPrefix, p.opacity, p.onFace);
           } else {
-            drawLensFlare(ctx, p.x, p.y, p.size, p.colorPrefix, p.baseOpacity * (effectPowerLevel === 1 ? rainbowAlpha : 1.0), p.twinklePhase, p.onFace);
+            drawLensFlare(ctx, p.x, p.y, p.size, p.colorPrefix, p.baseOpacity, p.twinklePhase, p.onFace);
           }
-        });
+        }
+      }
+
+      // 2. 10秒ごとに現れ3秒で消える虹エフェクトの描画
+      if (effectPowerLevel > 0) {
+        drawRainbow(ctx, logicalWidth, logicalHeight);
       }
 
       requestAnimationFrame(renderLoop);
@@ -515,7 +489,6 @@
       const saveCtx = saveCanvas.getContext('2d');
       saveCtx.scale(dpr, dpr);
 
-      // 1. カメラ映像の切り抜き合成
       if (webcamEl.readyState === webcamEl.HAVE_ENOUGH_DATA) {
         const vW = webcamEl.videoWidth;
         const vH = webcamEl.videoHeight;
@@ -539,13 +512,11 @@
         saveCtx.restore();
       }
 
-      // 2. ARレイヤー（泡・フレア・虹）の合成
       saveCtx.drawImage(arCanvas, 0, 0, logicalWidth, logicalHeight);
 
-      // 3. JPG保存
       const jpgDataUrl = saveCanvas.toDataURL('image/jpeg', 0.92);
       const link = document.createElement('a');
-      link.download = 'luxury_pro_ar_' + Date.now() + '.jpg';
+      link.download = 'luxury_pro_camera_' + Date.now() + '.jpg';
       link.href = jpgDataUrl;
       link.click();
 
@@ -557,7 +528,6 @@
     });
 
     initCamera();
-
   </script>
 </body>
 </html>
